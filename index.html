@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fixed-Point Format Explorer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0F1417;
+    --panel: #161C20;
+    --panel-2: #1D2429;
+    --line: #2A3238;
+    --text: #E8E6E1;
+    --text-dim: #8B9198;
+    --accent: #F5A623;
+    --accent-dim: #7A5716;
+    --good: #4ADE80;
+    --good-dim: #1F3D2C;
+    --bad: #F2545B;
+    --bad-dim: #3D1F22;
+    --gold: #E8C468;
+    --gold-dim: #4A3B14;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, Segoe UI, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F5F3EE; --panel: #FFFFFF; --panel-2: #FBFAF7; --line: #DEDAD1;
+      --text: #1B1B18; --text-dim: #6B6A63; --accent: #B4700A; --accent-dim: #F0DDB8;
+      --good: #1F8F52; --good-dim: #DEF3E6; --bad: #C43B45; --bad-dim: #FBE1E2;
+      --gold: #92660D; --gold-dim: #F3E4B8;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F3EE; --panel: #FFFFFF; --panel-2: #FBFAF7; --line: #DEDAD1;
+    --text: #1B1B18; --text-dim: #6B6A63; --accent: #B4700A; --accent-dim: #F0DDB8;
+    --good: #1F8F52; --good-dim: #DEF3E6; --bad: #C43B45; --bad-dim: #FBE1E2;
+    --gold: #92660D; --gold-dim: #F3E4B8;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.45; min-height: 100vh; }
+  body { background: var(--bg); }
+  .wrap { max-width: 1220px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+  header h1 { font-size: 21px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  header .sub { color: var(--text-dim); font-size: 13px; margin-top: 3px; }
+  .timing { font-family: var(--mono); font-size: 12px; color: var(--good); background: var(--good-dim); border-radius: 5px; padding: 4px 9px; white-space: nowrap; }
+
+  .layout { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  .panel + .panel { margin-top: 18px; }
+
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; }
+  .field input[type="text"], .field input[type="number"], .field select {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 7px; padding: 9px 10px; font-family: var(--mono); font-size: 14px;
+  }
+  .field select { font-family: var(--sans); }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .hint { font-size: 11.5px; color: var(--text-dim); margin-top: 5px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 7px; border: 1px solid var(--line);
+          background: var(--panel-2); color: var(--text-dim); font-family: var(--mono); font-size: 13px; cursor: pointer; user-select: none; }
+  .chip input { margin: 0; width: auto; accent-color: var(--accent); }
+  .chip.checked { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); font-weight: 600; }
+
+  .formula { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 11px 12px; font-family: var(--mono); font-size: 12.5px; }
+  .formula .lbl { color: var(--text-dim); font-family: var(--sans); font-size: 11px; margin-bottom: 3px; }
+  .formula .expr .op { color: var(--accent); }
+  .formula + .formula { margin-top: 10px; }
+
+  h2.panel-title { font-size: 13px; font-weight: 600; margin: 0 0 14px; }
+
+  .tol-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .tol-toggle input { width: auto; accent-color: var(--accent); }
+  .tol-toggle label { font-size: 13px; color: var(--text); cursor: pointer; }
+  #tolControls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #tolControls.disabled { opacity: 0.4; pointer-events: none; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tabs button { background: none; border: none; color: var(--text-dim); font-family: var(--sans); font-size: 13px;
+    padding: 8px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+  .rec-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .rec-card { background: var(--gold-dim); border: 1px solid var(--gold); border-radius: 8px; padding: 12px 14px; }
+  .rec-card .k { font-size: 11px; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .03em; }
+  .rec-card .v { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--gold); }
+  .rec-card .meta { font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
+  .rec-card.none { background: var(--panel-2); border-color: var(--line); }
+  .rec-card.none .v { color: var(--text-dim); font-size: 13px; font-weight: 500; }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; min-width: 960px; }
+  thead th { text-align: left; padding: 9px 10px; background: var(--panel-2); color: var(--text-dim);
+    font-family: var(--sans); font-size: 11.5px; font-weight: 600; border-bottom: 1px solid var(--line);
+    cursor: pointer; white-space: nowrap; user-select: none; }
+  thead th:hover { color: var(--accent); }
+  tbody tr { border-bottom: 1px solid var(--line); cursor: pointer; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--panel-2); }
+  tbody tr.selected { background: var(--accent-dim); }
+  tbody tr.recommended { background: var(--gold-dim); }
+  tbody tr.recommended:hover { background: var(--gold-dim); }
+  tbody td { padding: 8px 10px; white-space: nowrap; }
+  .fmt-name { font-weight: 600; }
+  .badge { font-family: var(--sans); font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 6px; letter-spacing: .02em; }
+  .badge.best { background: var(--good-dim); color: var(--good); }
+  .badge.rec { background: var(--gold); color: #1B1B18; }
+  .status-ok { color: var(--good); }
+  .status-over { color: var(--bad); font-weight: 600; }
+  .tol-pass { color: var(--good); }
+  .tol-fail { color: var(--bad); }
+  .conv-cell { white-space: nowrap; }
+  .conv-cell .eq-op { color: var(--text-dim); }
+  .conv-cell .err-val { font-weight: 600; }
+  .conv-cell .err-val.zero { color: var(--good); }
+  .conv-cell .err-val.nonzero { color: var(--accent); }
+  .conv-note { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
+  .radio-dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--line); display: inline-block; position: relative; }
+  tbody tr.selected .radio-dot { border-color: var(--accent); }
+  tbody tr.selected .radio-dot::after { content: ''; position: absolute; inset: 2.5px; border-radius: 50%; background: var(--accent); }
+
+  .empty { padding: 24px; text-align: center; color: var(--text-dim); font-size: 13px; }
+
+  .detail { margin-top: 16px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .stat .k { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+  .stat .v { font-family: var(--mono); font-size: 16px; font-weight: 600; }
+  .stat .v.good { color: var(--good); }
+  .stat .v.bad { color: var(--bad); }
+  .breakdown table { min-width: unset; }
+  select#constraint { font-family: var(--sans); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Fixed-point format explorer</h1>
+      <div class="sub">Weigh round-trip error against memory footprint — for picking a quantization format to port.</div>
+    </div>
+    <div class="timing" id="timing">—</div>
+  </header>
+
+  <div class="layout">
+
+    <!-- LEFT: INPUTS -->
+    <div>
+      <div class="panel">
+        <h2 class="panel-title">Input</h2>
+
+        <div class="field">
+          <label for="valueInput">Value(s) — comma-separated</label>
+          <input type="text" id="valueInput" value="1.5" inputmode="decimal">
+          <div class="hint">e.g. <code>1.5</code> or a sample of your tensor's weights</div>
+        </div>
+
+        <div class="field">
+          <label>Container widths to compare (bits)</label>
+          <div class="chip-row" id="widthChips">
+            <label class="chip"><input type="checkbox" value="4"> 4</label>
+            <label class="chip checked"><input type="checkbox" value="8" checked> 8</label>
+            <label class="chip checked"><input type="checkbox" value="16" checked> 16</label>
+            <label class="chip checked"><input type="checkbox" value="32" checked> 32</label>
+          </div>
+          <div class="hint">Fewer bits = less memory per element, but coarser quantization.</div>
+        </div>
+
+        <div class="field">
+          <label for="constraint">Constraint / use case</label>
+          <select id="constraint">
+            <option value="general">General — test everything</option>
+            <option value="sincos">Sin / Cos — range [-1, 1], signed only</option>
+            <option value="norm">Normalized — range [0, 1], unsigned only</option>
+            <option value="custom">Custom range…</option>
+          </select>
+          <div class="hint" id="constraintHint">No range assumption — only the entered value(s) are checked for overflow.</div>
+        </div>
+
+        <div class="field" id="customRangeField" style="display:none;">
+          <label>Custom range the variable must cover</label>
+          <div class="row2">
+            <input type="number" id="customMin" placeholder="min" value="-1">
+            <input type="number" id="customMax" placeholder="max" value="1">
+          </div>
+          <div class="row2" style="margin-top:8px;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); cursor:pointer;">
+              <input type="radio" name="customSign" value="signed" checked style="width:auto;"> signed
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); cursor:pointer;">
+              <input type="radio" name="customSign" value="unsigned" style="width:auto;"> unsigned
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="tensorCount">Tensor size — number of elements (optional)</label>
+          <input type="text" id="tensorCount" placeholder="e.g. 7000000 (7M params)" inputmode="numeric">
+          <div class="hint">Turns bits/element into a real memory total.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="tol-toggle">
+          <input type="checkbox" id="tolEnabled" checked>
+          <label for="tolEnabled">Recommend smallest format meeting a tolerance</label>
+        </div>
+        <div id="tolControls">
+          <select id="tolMetric">
+            <option value="rel">Max relative error (%)</option>
+            <option value="abs">Max absolute error</option>
+          </select>
+          <input type="number" id="tolValue" value="1" step="any">
+        </div>
+        <div class="hint">This is how quantization width is usually chosen for deployment: the narrowest format whose error stays under an acceptable bound.</div>
+      </div>
+
+      <div class="panel">
+        <h2 class="panel-title">Formulas</h2>
+        <div class="formula"><div class="lbl">float → fixed</div><div class="expr">fixed = round( value <span class="op">×</span> 2<sup>F</sup> )</div></div>
+        <div class="formula"><div class="lbl">fixed → float</div><div class="expr">value_back = fixed <span class="op">÷</span> 2<sup>F</sup></div></div>
+        <div class="formula"><div class="lbl">error</div><div class="expr">error = value <span class="op">−</span> value_back</div></div>
+        <div class="formula"><div class="lbl">memory / element</div><div class="expr">bytes = bits <span class="op">÷</span> 8</div></div>
+        <div class="formula"><div class="lbl">compression vs FP32</div><div class="expr">ratio = 32 <span class="op">÷</span> bits</div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: RESULTS -->
+    <div>
+      <div class="panel">
+        <div id="recCardsWrap"></div>
+
+        <div class="tabs" id="tabs">
+          <button data-tab="all" class="active">All</button>
+          <button data-tab="signed">Signed</button>
+          <button data-tab="unsigned">Unsigned</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th data-sort="name">Format</th>
+                <th data-sort="maxAbsErr">Conversion (value − back = error)</th>
+                <th data-sort="totalBits">Bits</th>
+                <th data-sort="bytesPerElem">Bytes/elem</th>
+                <th data-sort="totalMemory">Total mem</th>
+                <th data-sort="maxRelErr">Max rel err</th>
+                <th data-sort="withinTol">Tolerance</th>
+                <th data-sort="overflow">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="emptyMsg" style="display:none;">No format in this range fits without overflow. Add a wider container or relax the constraint.</div>
+      </div>
+
+      <div class="panel detail" id="detailPanel" style="display:none;">
+        <h2 class="panel-title">Selected format detail</h2>
+        <div class="detail-grid" id="detailStats"></div>
+        <div class="breakdown table-scroll">
+          <table>
+            <thead><tr><th>value</th><th>fixed</th><th>value_back</th><th>value &minus; back = error</th><th>rel error</th></tr></thead>
+            <tbody id="breakdownBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var state = { tab: 'all', sortKey: 'totalBits', sortDir: 'asc', selectedKey: null, results: [] };
+
+  function loadPrefs() {
+    try {
+      var raw = localStorage.getItem('fpx_prefs_v2');
+      if (!raw) return;
+      var p = JSON.parse(raw);
+      if (p.value) document.getElementById('valueInput').value = p.value;
+      if (p.constraint) document.getElementById('constraint').value = p.constraint;
+      if (p.customMin !== undefined) document.getElementById('customMin').value = p.customMin;
+      if (p.customMax !== undefined) document.getElementById('customMax').value = p.customMax;
+      if (p.tensorCount !== undefined) document.getElementById('tensorCount').value = p.tensorCount;
+      if (p.widths) {
+        document.querySelectorAll('#widthChips input').forEach(function (cb) {
+          cb.checked = p.widths.indexOf(cb.value) !== -1;
+          cb.closest('.chip').classList.toggle('checked', cb.checked);
+        });
+      }
+      if (p.tolEnabled !== undefined) document.getElementById('tolEnabled').checked = p.tolEnabled;
+      if (p.tolMetric) document.getElementById('tolMetric').value = p.tolMetric;
+      if (p.tolValue !== undefined) document.getElementById('tolValue').value = p.tolValue;
+    } catch (e) { /* storage unavailable */ }
+  }
+  function savePrefs() {
+    try {
+      localStorage.setItem('fpx_prefs_v2', JSON.stringify({
+        value: document.getElementById('valueInput').value,
+        constraint: document.getElementById('constraint').value,
+        customMin: document.getElementById('customMin').value,
+        customMax: document.getElementById('customMax').value,
+        tensorCount: document.getElementById('tensorCount').value,
+        widths: getCheckedWidths().map(String),
+        tolEnabled: document.getElementById('tolEnabled').checked,
+        tolMetric: document.getElementById('tolMetric').value,
+        tolValue: document.getElementById('tolValue').value
+      }));
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  function parseValues(str) {
+    return str.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s.length; })
+      .map(Number).filter(function (n) { return !isNaN(n); });
+  }
+
+  function getCheckedWidths() {
+    return Array.from(document.querySelectorAll('#widthChips input:checked')).map(function (cb) { return parseInt(cb.value, 10); }).sort(function (a, b) { return a - b; });
+  }
+
+  function getConstraint() {
+    var c = document.getElementById('constraint').value;
+    if (c === 'sincos') return { signedness: 'signed', min: -1, max: 1 };
+    if (c === 'norm') return { signedness: 'unsigned', min: 0, max: 1 };
+    if (c === 'custom') {
+      var min = parseFloat(document.getElementById('customMin').value);
+      var max = parseFloat(document.getElementById('customMax').value);
+      var sign = document.querySelector('input[name="customSign"]:checked').value;
+      return { signedness: sign, min: isNaN(min) ? null : min, max: isNaN(max) ? null : max };
+    }
+    return { signedness: 'both', min: null, max: null };
+  }
+
+  function getTolerance() {
+    var enabled = document.getElementById('tolEnabled').checked;
+    if (!enabled) return null;
+    var metric = document.getElementById('tolMetric').value;
+    var val = parseFloat(document.getElementById('tolValue').value);
+    if (isNaN(val)) return null;
+    return { metric: metric, value: metric === 'rel' ? val / 100 : val };
+  }
+
+  function evalFormat(checkValues, displayValues, F, signed, totalBits) {
+    var scale = Math.pow(2, F);
+    var lo, hi;
+    if (signed) { lo = -Math.pow(2, totalBits - 1); hi = Math.pow(2, totalBits - 1) - 1; }
+    else { lo = 0; hi = Math.pow(2, totalBits) - 1; }
+
+    var overflow = false;
+    checkValues.forEach(function (v) {
+      var fixed = Math.round(v * scale);
+      if (fixed < lo || fixed > hi) overflow = true;
+    });
+
+    var perValue = [], maxAbsErr = 0, maxRelErr = 0, worst = null;
+    displayValues.forEach(function (v) {
+      var fixed = Math.round(v * scale);
+      var of = fixed < lo || fixed > hi;
+      var clamped = Math.min(hi, Math.max(lo, fixed));
+      var back = clamped / scale;
+      var errSigned = v - back;
+      var absErr = Math.abs(errSigned);
+      var relErr = v !== 0 ? absErr / Math.abs(v) : 0;
+      maxAbsErr = Math.max(maxAbsErr, absErr);
+      maxRelErr = Math.max(maxRelErr, relErr);
+      var pv = { value: v, fixed: fixed, back: back, errSigned: errSigned, absErr: absErr, relErr: relErr, overflow: of };
+      perValue.push(pv);
+      if (!worst || absErr > worst.absErr) worst = pv;
+    });
+
+    var bytesPerElem = totalBits / 8;
+    return {
+      F: F, I: totalBits - F, signed: signed, totalBits: totalBits, scale: scale, lo: lo, hi: hi,
+      overflow: overflow, maxAbsErr: maxAbsErr, maxRelErr: maxRelErr, perValue: perValue, worst: worst,
+      multiValue: displayValues.length > 1,
+      bytesPerElem: bytesPerElem, name: 'f' + F + (signed ? 's' : 'u') + (totalBits - F)
+    };
+  }
+
+  function meetsTol(r, tol) {
+    if (!tol) return null;
+    return tol.metric === 'rel' ? r.maxRelErr <= tol.value : r.maxAbsErr <= tol.value;
+  }
+
+  function compute() {
+    var t0 = performance.now();
+    var rawValues = parseValues(document.getElementById('valueInput').value);
+    var constraint = getConstraint();
+    var widths = getCheckedWidths();
+    var tol = getTolerance();
+    var countStr = document.getElementById('tensorCount').value.replace(/[, _]/g, '');
+    var count = countStr ? parseFloat(countStr) : null;
+    if (count !== null && (isNaN(count) || count <= 0)) count = null;
+
+    var signOptions = constraint.signedness === 'both' ? [true, false]
+                     : constraint.signedness === 'signed' ? [true] : [false];
+
+    var checkValues = rawValues.slice();
+    if (constraint.min !== null && constraint.min !== undefined) checkValues.push(constraint.min);
+    if (constraint.max !== null && constraint.max !== undefined) checkValues.push(constraint.max);
+    var displayValues = rawValues.length ? rawValues : checkValues;
+
+    var results = [];
+    widths.forEach(function (width) {
+      signOptions.forEach(function (signed) {
+        for (var F = 0; F <= width; F++) {
+          var r = evalFormat(checkValues, displayValues, F, signed, width);
+          r.withinTol = meetsTol(r, tol);
+          if (count !== null) r.totalMemory = r.bytesPerElem * count;
+          results.push(r);
+        }
+      });
+    });
+
+    // "best precision at this width" per (width, signed)
+    var groups = {};
+    results.forEach(function (r) {
+      var gk = r.totalBits + '-' + r.signed;
+      if (!groups[gk]) groups[gk] = [];
+      groups[gk].push(r);
+    });
+    Object.keys(groups).forEach(function (gk) {
+      var candidates = groups[gk].filter(function (r) { return !r.overflow; });
+      if (candidates.length) {
+        var best = candidates.reduce(function (a, b) { return b.F > a.F ? b : a; });
+        best.isBestAtWidth = true;
+      }
+    });
+
+    // "recommended for porting": smallest width (per signedness) whose best-at-width candidate
+    // has no overflow AND meets tolerance (if tolerance active)
+    var recommendations = { signed: null, unsigned: null };
+    if (tol) {
+      ['signed', 'unsigned' ].forEach(function (kind) {
+        var isSigned = kind === 'signed';
+        if (signOptions.indexOf(isSigned) === -1) return;
+        var sortedWidths = widths.slice().sort(function (a, b) { return a - b; });
+        for (var i = 0; i < sortedWidths.length; i++) {
+          var w = sortedWidths[i];
+          var gk = w + '-' + isSigned;
+          var cands = (groups[gk] || []).filter(function (r) { return !r.overflow; });
+          if (!cands.length) continue;
+          var best = cands.reduce(function (a, b) { return b.F > a.F ? b : a; });
+          if (meetsTol(best, tol)) {
+            best.isRecommended = true;
+            recommendations[kind] = best;
+            break;
+          }
+        }
+      });
+    }
+
+    state.results = results;
+    state.recommendations = recommendations;
+    state.tolActive = !!tol;
+    state.hasCount = count !== null;
+
+    var elapsed = (performance.now() - t0).toFixed(3);
+    document.getElementById('timing').textContent = results.length + ' formats evaluated in ' + elapsed + ' ms';
+
+    renderRecCards();
+    render();
+    savePrefs();
+  }
+
+  function fmtNum(n) {
+    if (!isFinite(n)) return '—';
+    if (Math.abs(n) !== 0 && (Math.abs(n) < 1e-6 || Math.abs(n) > 1e9)) return n.toExponential(3);
+    return (Math.round(n * 1e9) / 1e9).toString();
+  }
+  function fmtBytes(b) {
+    if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
+    if (b >= 1e6) return (b / 1e6).toFixed(2) + ' MB';
+    if (b >= 1e3) return (b / 1e3).toFixed(2) + ' KB';
+    return b.toFixed(2) + ' B';
+  }
+
+  function renderRecCards() {
+    var wrap = document.getElementById('recCardsWrap');
+    if (!state.tolActive) { wrap.innerHTML = ''; return; }
+    var html = '<div class="rec-cards">';
+    ['signed', 'unsigned'].forEach(function (kind) {
+      var r = state.recommendations[kind];
+      if (!r) {
+        html += '<div class="rec-card none"><div class="k">' + kind + ' — recommended</div><div class="v">no format in the checked widths meets tolerance</div></div>';
+        return;
+      }
+      var meta = r.totalBits + '-bit · ' + r.bytesPerElem + ' bytes/elem · ' + (32 / r.totalBits).toFixed(1) + '× smaller than FP32';
+      if (state.hasCount && r.totalMemory !== undefined) meta += ' · ' + fmtBytes(r.totalMemory) + ' total';
+      html += '<div class="rec-card"><div class="k">' + kind + ' — recommended for porting</div><div class="v">' + r.name + '</div><div class="meta">' + meta + '</div></div>';
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+  }
+
+  function sortedFiltered() {
+    var rows = state.results.filter(function (r) {
+      if (state.tab === 'signed') return r.signed;
+      if (state.tab === 'unsigned') return !r.signed;
+      return true;
+    });
+    var key = state.sortKey, dir = state.sortDir === 'asc' ? 1 : -1;
+    rows.sort(function (a, b) {
+      var av = key === 'name' ? a.name : key === 'overflow' ? (a.overflow ? 1 : 0) : key === 'withinTol' ? (a.withinTol ? 1 : 0) : a[key];
+      var bv = key === 'name' ? b.name : key === 'overflow' ? (b.overflow ? 1 : 0) : key === 'withinTol' ? (b.withinTol ? 1 : 0) : b[key];
+      if (av === undefined) av = -Infinity;
+      if (bv === undefined) bv = -Infinity;
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return b.F > a.F ? 1 : -1; // stable-ish secondary: prefer showing higher F together
+    });
+    return rows;
+  }
+
+  function render() {
+    var rows = sortedFiltered();
+    var tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    document.getElementById('emptyMsg').style.display = rows.length ? 'none' : 'block';
+
+    rows.forEach(function (r) {
+      var key = r.totalBits + '-' + r.F + '-' + (r.signed ? 'signed' : 'unsigned');
+      var tr = document.createElement('tr');
+      var cls = [];
+      if (key === state.selectedKey) cls.push('selected');
+      if (r.isRecommended) cls.push('recommended');
+      tr.className = cls.join(' ');
+
+      var badges = '';
+      if (r.isRecommended) badges += '<span class="badge rec">RECOMMENDED</span>';
+      else if (r.isBestAtWidth) badges += '<span class="badge best">best @' + r.totalBits + 'b</span>';
+
+      var tolCell = r.withinTol === null ? '<span style="color:var(--text-dim)">—</span>'
+                   : r.withinTol ? '<span class="tol-pass">✓ meets</span>' : '<span class="tol-fail">✗ exceeds</span>';
+
+      var convCell = '<span style="color:var(--text-dim)">no valid value</span>';
+      if (r.worst) {
+        var errClass = r.worst.absErr === 0 ? 'zero' : 'nonzero';
+        convCell = fmtNum(r.worst.value) + ' <span class="eq-op">&minus;</span> ' + fmtNum(r.worst.back) +
+          ' <span class="eq-op">=</span> <span class="err-val ' + errClass + '">' + fmtNum(r.worst.errSigned) + '</span>';
+        if (r.multiValue) convCell += '<span class="conv-note">(worst of ' + r.perValue.length + ')</span>';
+      }
+
+      tr.innerHTML =
+        '<td><span class="radio-dot"></span></td>' +
+        '<td class="fmt-name">' + r.name + badges + '</td>' +
+        '<td class="conv-cell">' + convCell + '</td>' +
+        '<td>' + r.totalBits + '</td>' +
+        '<td>' + r.bytesPerElem + '</td>' +
+        '<td>' + (r.totalMemory !== undefined ? fmtBytes(r.totalMemory) : '—') + '</td>' +
+        '<td>' + fmtNum(r.maxRelErr) + '</td>' +
+        '<td>' + tolCell + '</td>' +
+        '<td class="' + (r.overflow ? 'status-over' : 'status-ok') + '">' + (r.overflow ? 'overflow' : 'ok') + '</td>';
+      tr.addEventListener('click', function () { state.selectedKey = key; render(); });
+      tbody.appendChild(tr);
+    });
+
+    renderDetail();
+  }
+
+  function renderDetail() {
+    var panel = document.getElementById('detailPanel');
+    if (!state.selectedKey) { panel.style.display = 'none'; return; }
+    var r = state.results.find(function (x) {
+      return (x.totalBits + '-' + x.F + '-' + (x.signed ? 'signed' : 'unsigned')) === state.selectedKey;
+    });
+    if (!r) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+
+    document.getElementById('detailStats').innerHTML =
+      '<div class="stat"><div class="k">format</div><div class="v">' + r.name + '</div></div>' +
+      '<div class="stat"><div class="k">scale (2^' + r.F + ')</div><div class="v">' + r.scale.toLocaleString() + '</div></div>' +
+      '<div class="stat"><div class="k">container range</div><div class="v" style="font-size:13px;">[' + r.lo.toLocaleString() + ', ' + r.hi.toLocaleString() + ']</div></div>' +
+      '<div class="stat"><div class="k">memory / element</div><div class="v">' + r.bytesPerElem + ' B (' + (32 / r.totalBits).toFixed(1) + '× vs FP32)</div></div>' +
+      '<div class="stat"><div class="k">status</div><div class="v ' + (r.overflow ? 'bad' : 'good') + '">' + (r.overflow ? 'overflow' : 'fits') + '</div></div>';
+
+    var body = document.getElementById('breakdownBody');
+    body.innerHTML = '';
+    r.perValue.forEach(function (pv) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + fmtNum(pv.value) + '</td>' +
+        '<td' + (pv.overflow ? ' class="status-over"' : '') + '>' + pv.fixed.toLocaleString() + '</td>' +
+        '<td>' + fmtNum(pv.back) + '</td>' +
+        '<td>' + fmtNum(pv.value) + ' &minus; ' + fmtNum(pv.back) + ' = <b>' + fmtNum(pv.errSigned) + '</b></td>' +
+        '<td>' + fmtNum(pv.relErr) + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  // ---- wiring ----
+  document.getElementById('valueInput').addEventListener('input', compute);
+  document.getElementById('tensorCount').addEventListener('input', compute);
+
+  document.querySelectorAll('#widthChips input').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      cb.closest('.chip').classList.toggle('checked', cb.checked);
+      state.selectedKey = null;
+      compute();
+    });
+  });
+
+  document.getElementById('constraint').addEventListener('change', function () {
+    var v = this.value;
+    document.getElementById('customRangeField').style.display = v === 'custom' ? 'block' : 'none';
+    var hint = document.getElementById('constraintHint');
+    if (v === 'general') hint.textContent = 'No range assumption — only the entered value(s) are checked for overflow.';
+    else if (v === 'sincos') hint.textContent = 'Only signed formats shown; every format must also cover [-1, 1] without overflow.';
+    else if (v === 'norm') hint.textContent = 'Only unsigned formats shown; every format must also cover [0, 1] without overflow.';
+    else hint.textContent = 'Only the chosen sign shown; every format must also cover the range below.';
+    state.selectedKey = null;
+    compute();
+  });
+  ['customMin', 'customMax'].forEach(function (id) { document.getElementById(id).addEventListener('input', compute); });
+  document.querySelectorAll('input[name="customSign"]').forEach(function (r) { r.addEventListener('change', function () { state.selectedKey = null; compute(); }); });
+
+  document.getElementById('tolEnabled').addEventListener('change', function () {
+    document.getElementById('tolControls').classList.toggle('disabled', !this.checked);
+    compute();
+  });
+  document.getElementById('tolMetric').addEventListener('change', function () {
+    document.getElementById('tolValue').value = this.value === 'rel' ? 1 : 0.01;
+    compute();
+  });
+  document.getElementById('tolValue').addEventListener('input', compute);
+
+  document.getElementById('tabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    state.tab = btn.dataset.tab;
+    document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    render();
+  });
+
+  document.querySelectorAll('thead th[data-sort]').forEach(function (th) {
+    th.addEventListener('click', function () {
+      var key = th.dataset.sort;
+      if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      else { state.sortKey = key; state.sortDir = key === 'totalBits' ? 'asc' : 'desc'; }
+      render();
+    });
+  });
+
+  // ---- init ----
+  loadPrefs();
+  var c = document.getElementById('constraint').value;
+  document.getElementById('customRangeField').style.display = c === 'custom' ? 'block' : 'none';
+  document.getElementById('tolControls').classList.toggle('disabled', !document.getElementById('tolEnabled').checked);
+  compute();
+})();
+</script>
+</body>
+</html>
