@@ -5,7 +5,7 @@ for a floating-point value or tensor - weighing **round-trip precision** against
 **memory footprint**, which is the actual tradeoff behind choosing an INT4 / INT8 /
 INT16 / INT32 quantization width when porting a model or embedded variable.
 
-**[Live demo →](#)** *(https://ashwinambatwar-mythic.github.io/quant-width-picker/`)*
+**[Live demo](https://ashwinambatwar-mythic.github.io/quant-width-picker/)**
 
 ---
 
